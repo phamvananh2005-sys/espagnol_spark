@@ -237,9 +237,147 @@ export default function App() {
         #printable-report { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; }
         .no-print { display: none !important; }
       }
-      .spain-bg { background: radial-gradient(circle at top left, rgba(255,196,0,0.35), transparent 32%), linear-gradient(135deg, #fff7cc 0%, #fff1b8 45%, #ffe4a3 100%); position: relative; min-height: 100vh; overflow-x: hidden; }
-      .app-content { position: relative; z-index: 10; }
-    `;
+      :root {
+        --esp-orange: #F26522;
+        --esp-gold: #F6B817;
+        --esp-navy: #10213A;
+        --esp-coral: #F49A78;
+      }
+
+      /* BACKGROUND GIỐNG ẢNH MẪU:
+         - Dùng một ảnh nền Tây Ban Nha đặt trong thư mục /public.
+         - File cần có tên: espagnol-spark-bg.png
+         - Đây là cách duy nhất để background trông chân thật, không còn kiểu vẽ vector/gradient giả. */
+      .spain-bg {
+        position: relative;
+        min-height: 100vh;
+        overflow-x: hidden;
+        background: #f7c6ad;
+      }
+
+      .spanish-scene {
+        position: fixed;
+        inset: 64px 0 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+        background-image:
+          linear-gradient(90deg, rgba(242,101,34,.08) 0%, rgba(255,255,255,.03) 44%, rgba(255,188,104,.07) 100%),
+          url('/espagnol-spark-bg.png');
+        background-size: cover;
+        background-position: center top;
+        background-repeat: no-repeat;
+      }
+
+      .spanish-scene::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 50% 38%, rgba(255,255,255,.10), transparent 36%),
+          linear-gradient(180deg, rgba(255,255,255,.03), rgba(242,101,34,.03));
+        z-index: 1;
+      }
+
+      /* Tắt toàn bộ background vector cũ để không bị sai như ảnh hiện tại */
+      .photo-left,
+      .photo-right,
+      .scene-haze,
+      .sun-disc,
+      .flow-lines,
+      .gaudi-mosaic,
+      .soft-wave {
+        display: none !important;
+      }
+
+      .glass-home-panel {
+        position: relative;
+        max-width: 890px;
+        min-height: 575px;
+        margin: 72px auto 0;
+        padding: 54px 70px 42px;
+        border-radius: 46px;
+        background: linear-gradient(135deg, rgba(255,255,255,.72), rgba(255,255,255,.42));
+        border: 1.5px solid rgba(255,255,255,.72);
+        box-shadow: 0 32px 90px rgba(116,57,35,.14), inset 0 1px 0 rgba(255,255,255,.66);
+        backdrop-filter: blur(16px);
+      }
+
+      .home-spark-badge {
+        position: absolute;
+        top: -23px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 46px;
+        height: 46px;
+        display: grid;
+        place-items: center;
+        border-radius: 9999px;
+        background: rgba(255,255,255,.90);
+        box-shadow: 0 8px 18px rgba(75,42,25,.16);
+        border: 1px solid rgba(255,255,255,.78);
+      }
+
+      .section-title-line {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+      }
+      .section-title-line::before,
+      .section-title-line::after {
+        content: '';
+        width: 54px;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(242,101,34,.42));
+      }
+      .section-title-line::after {
+        background: linear-gradient(90deg, rgba(242,101,34,.42), transparent);
+      }
+      .section-title-line span::after {
+        content: '';
+        display: block;
+        margin: 10px auto 0;
+        width: 34px;
+        height: 3px;
+        border-radius: 9999px;
+        background: var(--esp-orange);
+      }
+
+      .mode-card-real {
+        border-radius: 30px;
+        padding: 32px 32px 26px;
+        min-height: 250px;
+        background: linear-gradient(145deg, rgba(255,255,255,.90), rgba(255,255,255,.67));
+        border: 1px solid rgba(255,255,255,.78);
+        box-shadow: 0 26px 55px rgba(98,54,31,.16), inset 0 1px 0 rgba(255,255,255,.72);
+        backdrop-filter: blur(12px);
+        transition: transform .25s ease, box-shadow .25s ease;
+      }
+      .mode-card-real:hover {
+        transform: translateY(-7px);
+        box-shadow: 0 34px 70px rgba(98,54,31,.22);
+      }
+      .mode-icon-real {
+        width: 58px;
+        height: 58px;
+        border-radius: 9999px;
+        display: grid;
+        place-items: center;
+        color: white;
+        margin: 0 auto 20px;
+        box-shadow: 0 12px 22px rgba(86,54,30,.17);
+      }
+
+      @media (max-width: 900px) {
+        .glass-home-panel {
+          margin: 34px 16px 0;
+          padding: 42px 20px 28px;
+          border-radius: 32px;
+        }
+      }
+
+      .app-content { position: relative; z-index: 10; }    `;
     document.head.appendChild(style);
     return () => document.head.removeChild(style);
   }, []);
@@ -291,65 +429,73 @@ export default function App() {
   };
 
   const renderHome = () => (
-    <div className="animate-in fade-in zoom-in-95 duration-500 max-w-4xl mx-auto mt-12 px-4 pb-20">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-black text-slate-800 mb-4">{t('welcome')}</h2>
-        <p className="text-slate-600 font-medium flex items-center justify-center gap-2">
-          {t('subtitle')} <Sparkles size={16} className="text-[#F26522]" />
-        </p>
-      </div>
+    <div className="animate-in fade-in zoom-in-95 duration-500 max-w-6xl mx-auto px-4 pb-20">
+      <div className="glass-home-panel">
+        <div className="home-spark-badge">
+          <Sparkles size={22} className="text-[#F26522]" />
+        </div>
 
-      <div className="mb-10 max-w-md mx-auto">
-        <label className="block text-center font-bold text-slate-700 mb-3">{t('step1')}</label>
-        <div className="bg-white/95 backdrop-blur-sm p-2 pl-5 rounded-2xl shadow-md border border-[#f0e0d8] flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#F26522]/50 transition-all">
-          <User className={studentName.trim() ? "text-green-500 transition-colors" : "text-[#F26522] transition-colors"} />
-          <input
-            id="student-name-input"
-            type="text"
-            placeholder={t('namePlaceholder')}
-            value={studentName}
-            onChange={(e) => setStudentName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-            className="flex-1 bg-transparent outline-none font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-medium py-2"
-          />
-          {studentName.trim() && (
-            <span className="bg-green-100 text-green-700 px-3 py-1.5 rounded-xl text-xs font-bold animate-in zoom-in flex items-center gap-1">
-              <CheckCircle2 size={14} /> {t('received')}
-            </span>
-          )}
+        <div className="text-center mb-8">
+          <h2 className="text-4xl md:text-5xl font-black text-[#10213A] leading-tight tracking-tight mb-4">
+            {lang === 'vi' ? 'Chào mừng đến với' : 'Welcome to'}<br />
+            <span className="text-[#F26522]">Espagnol</span> Spark
+          </h2>
+          <p className="text-slate-700 font-medium text-base md:text-lg flex items-center justify-center gap-2 leading-relaxed">
+            {t('subtitle')} <Sparkles size={16} className="text-[#F26522]" />
+          </p>
+        </div>
+
+        <div className="mb-10 max-w-xl mx-auto">
+          <div className="bg-white/90 backdrop-blur-xl px-6 py-4 rounded-2xl shadow-xl border border-white/80 flex items-center gap-4 focus-within:ring-2 focus-within:ring-[#F26522]/40 transition-all">
+            <User size={23} className={studentName.trim() ? "text-green-500 transition-colors" : "text-[#F26522] transition-colors"} />
+            <input
+              id="student-name-input"
+              type="text"
+              placeholder={t('namePlaceholder')}
+              value={studentName}
+              onChange={(e) => setStudentName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+              className="flex-1 bg-transparent outline-none font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-medium py-1"
+            />
+            {studentName.trim() && (
+              <span className="bg-green-100 text-green-700 px-3 py-1.5 rounded-xl text-xs font-bold animate-in zoom-in flex items-center gap-1">
+                <CheckCircle2 size={14} /> {t('received')}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="text-center mb-8">
+          <label className="section-title-line font-bold text-[#10213A] text-lg"><span>{lang === 'vi' ? 'Chọn chế độ luyện tập' : 'Select training mode'}</span></label>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8">
+          <button onClick={() => handleModeSelect('shadowing')} className="mode-card-real group text-center relative overflow-hidden">
+            <div className="mode-icon-real bg-gradient-to-br from-[#ff8a00] to-[#F26522]"><MessageCircle size={30} /></div>
+            <h3 className="text-xl font-black text-[#10213A] mb-4 relative z-10">{t('shadowingTitle')}</h3>
+            <p className="text-slate-700 text-sm relative z-10 leading-relaxed">{t('shadowingDesc')}</p>
+            <ChevronRight size={22} className="mx-auto mt-7 text-[#F26522] group-hover:translate-x-1 transition-transform" />
+          </button>
+
+          <button onClick={() => handleModeSelect('topic')} className="mode-card-real group text-center relative overflow-hidden">
+            <div className="mode-icon-real bg-gradient-to-br from-[#ffc928] to-[#f2a900]"><BookOpen size={30} /></div>
+            <h3 className="text-xl font-black text-[#10213A] mb-4 relative z-10">{t('topicTitle')}</h3>
+            <p className="text-slate-700 text-sm relative z-10 leading-relaxed">{t('topicDesc')}</p>
+            <ChevronRight size={22} className="mx-auto mt-7 text-[#f2a900] group-hover:translate-x-1 transition-transform" />
+          </button>
+
+          <button onClick={() => handleModeSelect('free')} className="mode-card-real group text-center relative overflow-hidden">
+            <div className="mode-icon-real bg-gradient-to-br from-[#46d38b] to-[#18bca8]"><Mic size={30} /></div>
+            <h3 className="text-xl font-black text-[#10213A] mb-4 relative z-10">{t('freeTitle')}</h3>
+            <p className="text-slate-700 text-sm relative z-10 leading-relaxed">{t('freeDesc')}</p>
+            <ChevronRight size={22} className="mx-auto mt-7 text-[#18bca8] group-hover:translate-x-1 transition-transform" />
+          </button>
         </div>
       </div>
 
-      <div className="text-center mb-6">
-        <label className="block font-bold text-slate-700">{t('step2')}</label>
-      </div>
-
-      <div className="grid md:grid-cols-3 gap-6">
-        <button onClick={() => handleModeSelect('shadowing')} className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 border border-[#f0e0d8] shadow-lg hover:shadow-2xl hover:border-[#F26522] transition-all group text-left relative overflow-hidden">
-          <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-50 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
-          <MessageCircle size={40} className="text-[#F26522] mb-6 relative z-10" />
-          <h3 className="text-xl font-bold text-slate-800 mb-2 relative z-10">{t('shadowingTitle')}</h3>
-          <p className="text-slate-600 text-sm relative z-10 leading-relaxed">{t('shadowingDesc')}</p>
-        </button>
-
-        <button onClick={() => handleModeSelect('topic')} className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 border border-[#f0e0d8] shadow-lg hover:shadow-2xl hover:border-[#F26522] transition-all group text-left relative overflow-hidden">
-          <div className="absolute -right-6 -top-6 w-24 h-24 bg-orange-50 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
-          <BookOpen size={40} className="text-[#F26522] mb-6 relative z-10" />
-          <h3 className="text-xl font-bold text-slate-800 mb-2 relative z-10">{t('topicTitle')}</h3>
-          <p className="text-slate-600 text-sm relative z-10 leading-relaxed">{t('topicDesc')}</p>
-        </button>
-
-        <button onClick={() => handleModeSelect('free')} className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 border border-[#f0e0d8] shadow-lg hover:shadow-2xl hover:border-[#F26522] transition-all group text-left relative overflow-hidden">
-          <div className="absolute -right-6 -top-6 w-24 h-24 bg-green-50 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
-          <Mic size={40} className="text-[#F26522] mb-6 relative z-10" />
-          <h3 className="text-xl font-bold text-slate-800 mb-2 relative z-10">{t('freeTitle')}</h3>
-          <p className="text-slate-600 text-sm relative z-10 leading-relaxed">{t('freeDesc')}</p>
-        </button>
-      </div>
-
-      <div className="mt-16 text-center">
-        <button onClick={() => setActiveMode('adminLogin')} className="text-xs text-slate-400 hover:text-[#F26522] transition-colors underline decoration-dotted">
-          {t('adminLink')}
+      <div className="mt-10 text-center">
+        <button onClick={() => setActiveMode('adminLogin')} className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-[#F26522] transition-colors bg-white/55 backdrop-blur-md px-7 py-3 rounded-full shadow-sm border border-white/70">
+          <ShieldCheck size={14} /> {t('adminLink')}
         </button>
       </div>
     </div>
@@ -359,38 +505,41 @@ export default function App() {
     <LanguageContext.Provider value={{ lang, setLang, t }}>
       <div className="spain-bg text-slate-800 font-sans selection:bg-[#F26522] selection:text-white">
 
-        {/* KHÔNG GIAN TÂY BAN NHA: QUẠT, MẶT TRỜI VÀ VŨ CÔNG FLAMENCO */}
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-70">
-          <div className="absolute -top-20 -right-16 w-72 h-72 rounded-full bg-[#FDD116]/40 blur-2xl"></div>
-          <div className="absolute top-20 right-6 md:right-20 w-64 h-64 md:w-80 md:h-80 opacity-70">
-            <svg viewBox="0 0 400 400" className="w-full h-full drop-shadow-md">
-              <circle cx="300" cy="90" r="46" fill="#FDD116" opacity="0.75" />
-              <path d="M90 300 C130 130 260 130 310 300 Z" fill="#AA151B" opacity="0.18" />
-              <path d="M110 300 C140 170 250 170 290 300" fill="none" stroke="#AA151B" strokeWidth="9" strokeLinecap="round" />
-              <path d="M140 300 C160 200 235 200 260 300" fill="none" stroke="#AA151B" strokeWidth="7" strokeLinecap="round" />
-              <path d="M180 300 C190 225 220 225 230 300" fill="none" stroke="#AA151B" strokeWidth="6" strokeLinecap="round" />
-              <circle cx="205" cy="140" r="16" fill="#1f2937" />
-              <path d="M205 158 C190 190 188 230 206 265 C225 230 226 190 205 158 Z" fill="#111827" />
-              <path d="M190 185 C150 200 132 230 120 265" fill="none" stroke="#111827" strokeWidth="10" strokeLinecap="round" />
-              <path d="M218 183 C250 160 270 130 284 100" fill="none" stroke="#111827" strokeWidth="10" strokeLinecap="round" />
-              <path d="M170 250 C225 210 285 235 310 300 C255 286 205 285 150 318 C150 292 155 270 170 250 Z" fill="#AA151B" />
-              <path d="M165 285 C215 255 260 265 300 300" fill="none" stroke="#FDD116" strokeWidth="8" strokeLinecap="round" />
-            </svg>
-          </div>
-        </div>
+        {/* BACKGROUND TÂY BAN NHA: ảnh thật + lớp màu hoàng hôn + đường cong như mẫu */}
+        <div className="spanish-scene">
+          <div className="photo-left"></div>
+          <div className="photo-right"></div>
+          <div className="scene-haze"></div>
+          <div className="sun-disc"></div>
 
-        {/* DẢI MÀU CỜ TÂY BAN NHA Ở CHÂN TRANG */}
-        <div className="fixed bottom-0 left-0 w-full h-[32vh] pointer-events-none z-0 opacity-35">
-          <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className="w-full h-full absolute bottom-0">
-            <path fill="#AA151B" d="M0,260 C260,210 430,300 720,245 C1010,190 1190,250 1440,210 L1440,320 L0,320 Z"></path>
-            <path fill="#FDD116" d="M0,285 C280,235 470,310 720,270 C1000,225 1220,280 1440,245 L1440,320 L0,320 Z"></path>
+          <svg className="flow-lines" viewBox="0 0 1600 900" preserveAspectRatio="none">
+            <path d="M-60 255 C260 500 600 265 920 255 C1170 248 1360 145 1660 -20" fill="none" stroke="rgba(255,255,255,.62)" strokeWidth="1.4" />
+            <path d="M-70 315 C250 560 610 375 935 350 C1210 330 1390 210 1660 62" fill="none" stroke="rgba(255,255,255,.48)" strokeWidth="1.2" />
+            <path d="M-60 775 C260 705 430 845 690 765 C950 685 1135 790 1650 695" fill="none" stroke="rgba(255,255,255,.58)" strokeWidth="1.3" />
+            <path d="M-60 805 C260 742 420 885 690 810 C960 735 1195 842 1650 760" fill="none" stroke="rgba(255,255,255,.42)" strokeWidth="1.2" />
+          </svg>
+
+          <svg className="gaudi-mosaic" viewBox="0 0 520 320" preserveAspectRatio="xMidYMid meet">
+            <path d="M0 230 C60 205 105 176 138 128 L205 212 L290 105 L378 205 L520 150 L520 320 L0 320 Z" fill="rgba(255,255,255,.64)" />
+            <path d="M0 260 L55 225 L92 280 L0 320 Z" fill="#6ba4c9" opacity=".85" />
+            <path d="M42 218 L132 130 L190 214 L100 282 Z" fill="#fff3c3" opacity=".9" />
+            <path d="M135 129 L226 215 L174 284 L92 280 Z" fill="#f4aa2f" opacity=".9" />
+            <path d="M228 216 L308 104 L382 204 L318 280 Z" fill="#355b86" opacity=".95" />
+            <path d="M318 280 L382 204 L520 150 L520 320 Z" fill="#f1e4d1" opacity=".88" />
+            <path d="M0 260 L55 225 L92 280 L135 129 L226 215 L308 104 L382 204" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth="5" />
+            <path d="M92 280 C165 250 260 292 382 204" fill="none" stroke="rgba(255,255,255,.65)" strokeWidth="3" />
+          </svg>
+
+          <svg className="soft-wave" viewBox="0 0 1600 220" preserveAspectRatio="none">
+            <path d="M0 95 C210 55 345 115 555 100 C770 84 920 30 1120 66 C1320 102 1440 80 1600 40 L1600 220 L0 220 Z" fill="rgba(255,255,255,.32)" />
+            <path d="M0 145 C240 115 400 155 600 135 C840 110 1000 130 1185 138 C1350 146 1450 128 1600 90 L1600 220 L0 220 Z" fill="rgba(255,255,255,.24)" />
           </svg>
         </div>
 
-        <header className="bg-white/90 backdrop-blur-md shadow-sm border-b border-[#f0e0d8] sticky top-0 z-50 app-content no-print">
-          <div className="max-w-5xl mx-auto px-4 h-16 flex justify-between items-center">
+        <header className="bg-white/60 backdrop-blur-xl shadow-sm border-b border-white/50 sticky top-0 z-50 app-content no-print">
+          <div className="max-w-7xl mx-auto px-5 h-16 flex justify-between items-center">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setActiveMode(null); }}>
-            <div class="w-8 h-8 flex items-center justify-center"><svg viewBox="0 0 100 100" fill="none" stroke="#F26522" stroke-width="12" stroke-linecap="butt" stroke-linejoin="miter" class="w-full h-full"><path d="M 15 90 L 15 15 L 50 50 L 85 15 L 85 90"></path><path d="M 85 90 L 50 50"></path></svg></div>
+            <div className="w-8 h-8 flex items-center justify-center"><svg viewBox="0 0 100 100" fill="none" stroke="#F26522" strokeWidth="12" strokeLinecap="butt" strokeLinejoin="miter" className="w-full h-full"><path d="M 15 90 L 15 15 L 50 50 L 85 15 L 85 90"></path><path d="M 85 90 L 50 50"></path></svg></div>
               <h1 className="font-bold text-xl tracking-tight hidden sm:block"><span className="text-[#FDD116] drop-shadow-sm">ESPAGNOL</span><span className="text-slate-800"> SPARK</span></h1>
             </div>
 
