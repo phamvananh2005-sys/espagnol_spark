@@ -185,23 +185,122 @@ const dict = {
 
 const LanguageContext = createContext();
 
-// --- HELPER: hiển thị văn bản chính / phiên âm từ cú pháp [text|pronunciation] ---
-function PronunciationText({ text }) {
-  if (!text) return null;
-  const parts = text.split(/(\[[^|]+\|[^\]]+\])/g);
+// --- HELPER: chọn giọng đọc tiếng Tây Ban Nha rõ hơn cho phần nghe mẫu ---
+const cleanSpanishTextForTTS = (textRaw = '') => {
+  return String(textRaw || '')
+    // Nếu dữ liệu cũ còn dạng [text|pronunciation] thì chỉ lấy text chính, không lấy pronunciation kiểu tiếng Nhật cũ.
+    .replace(/\[([^|]+)\|([^\]]+)\]/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const getBestSpanishVoice = () => {
+  if (!('speechSynthesis' in window)) return null;
+
+  const voices = window.speechSynthesis.getVoices() || [];
+  const spanishVoices = voices.filter((voice) => String(voice.lang || '').toLowerCase().startsWith('es'));
+
+  const priorityNames = [
+    /google.*español/i,
+    /google.*spanish/i,
+    /microsoft.*spanish/i,
+    /microsoft.*español/i,
+    /natural/i,
+    /premium/i,
+    /helena/i,
+    /elvira/i,
+    /alvaro/i,
+    /jorge/i,
+    /sabina/i
+  ];
+
+  for (const pattern of priorityNames) {
+    const found = spanishVoices.find((voice) => pattern.test(voice.name || ''));
+    if (found) return found;
+  }
+
   return (
-    <span className="leading-loose break-words inline-block max-w-full">
-      {parts.map((part, i) => {
-        const match = part.match(/\[([^|]+)\|([^\]]+)\]/);
-        if (match) {
-          return (
-            <ruby key={i} className="mx-0.5 whitespace-nowrap">
-              {match[1]}<rt className="text-[0.55em] text-[#F26522] font-medium tracking-tighter">{match[2]}</rt>
-            </ruby>
-          );
-        }
-        return <span key={i} className="whitespace-pre-wrap">{part}</span>;
-      })}
+    spanishVoices.find((voice) => voice.lang === 'es-ES') ||
+    spanishVoices.find((voice) => voice.lang === 'es-MX') ||
+    spanishVoices.find((voice) => voice.lang === 'es-US') ||
+    spanishVoices[0] ||
+    null
+  );
+};
+
+const speakSpanishModelAudio = ({ textRaw, speedMode = 'normal', level = 'A1', onStart, onEnd, lang = 'vi' }) => {
+  if (!('speechSynthesis' in window)) {
+    alert(lang === 'en' ? 'Your browser does not support model audio.' : 'Trình duyệt của bạn không hỗ trợ đọc âm mẫu.');
+    return;
+  }
+
+  const cleanText = cleanSpanishTextForTTS(textRaw);
+  if (!cleanText) return;
+
+  const startSpeaking = () => {
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    const voice = getBestSpanishVoice();
+
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang || 'es-ES';
+    } else {
+      utterance.lang = 'es-ES';
+    }
+
+    // Tốc độ cũ 0.35 làm giọng bị kéo dài, méo và khó nghe.
+    // Tốc độ mới chậm vừa phải, rõ nhưng vẫn tự nhiên.
+    const normalRateMap = {
+      A1: 0.82,
+      A2: 0.86,
+      B1: 0.90,
+      B2: 0.94,
+      C1: 0.98,
+      C2: 1.0
+    };
+
+    utterance.rate = speedMode === 'slow' ? 0.72 : (normalRateMap[String(level || 'A1').toUpperCase()] || 0.88);
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    utterance.onstart = () => {
+      if (typeof onStart === 'function') onStart();
+    };
+
+    utterance.onend = () => {
+      if (typeof onEnd === 'function') onEnd();
+    };
+
+    utterance.onerror = () => {
+      if (typeof onEnd === 'function') onEnd();
+      alert(
+        lang === 'en'
+          ? 'The sample audio could not be played clearly. Please check whether your browser/computer has a Spanish voice installed.'
+          : 'Không đọc được âm mẫu rõ ràng. Vui lòng kiểm tra trình duyệt/máy tính có giọng đọc tiếng Tây Ban Nha hay chưa.'
+      );
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Một số trình duyệt load danh sách voice chậm, cần đợi onvoiceschanged.
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) {
+    window.speechSynthesis.onvoiceschanged = startSpeaking;
+  } else {
+    startSpeaking();
+  }
+};
+
+
+// --- HELPER: hiển thị văn bản tiếng Tây Ban Nha thuần, không yêu cầu pronunciation ---
+function SpanishText({ text }) {
+  if (!text) return null;
+  return (
+    <span className="leading-loose break-words inline-block max-w-full whitespace-pre-wrap">
+      {text}
     </span>
   );
 }
@@ -631,7 +730,7 @@ function AdminPanel({ dbTopics, setDbTopics, dbShadowing, setDbShadowing, adminP
   const [tab, setTab] = useState('topics');
   const [editingTopic, setEditingTopic] = useState(null);
   const [editingShadow, setEditingShadow] = useState(null);
-  const [shadowItemsText, setShadowItemsText] = useState('');
+  const [shadowRows, setShadowRows] = useState([]);
 
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
@@ -676,10 +775,16 @@ function AdminPanel({ dbTopics, setDbTopics, dbShadowing, setDbShadowing, adminP
 
   const saveShadow = async (isPublished) => {
     if (!editingShadow.title) { alert("Nhập tên bài học!"); return; }
-    const parsedItems = shadowItemsText.split('\n').filter(line => line.trim() !== '').map(line => {
-      const parts = line.split('/').map(p => p.trim());
-      return { jp: parts[0] || '', romaji: parts[1] || '', vi: parts[2] || '', en: parts[3] || '' };
-    });
+    const parsedItems = shadowRows
+      .map(row => ({
+        jp: (row.jp || '').trim(),
+        vi: (row.vi || '').trim(),
+        en: (row.en || '').trim()
+      }))
+      .filter(row => row.jp || row.vi || row.en);
+
+    if (parsedItems.length === 0) { alert("Vui lòng nhập ít nhất một từ hoặc một câu!"); return; }
+
     const newShadow = { ...editingShadow, items: parsedItems, isPublished };
     if (!newShadow.id) newShadow.id = 's_' + Date.now();
 
@@ -804,10 +909,31 @@ function AdminPanel({ dbTopics, setDbTopics, dbShadowing, setDbShadowing, adminP
     }
   };
 
-  const startEditTopic = (t) => { setEditingTopic({ ...t }); };
+  const startEditTopic = (t) => {
+    setEditingTopic({
+      ...t,
+      hint: { jp: '', vi: '', en: '', ...(t.hint || {}) }
+    });
+  };
   const startEditShadow = (s) => {
     setEditingShadow({ ...s });
-    setShadowItemsText(s.items.map(i => `${i.jp} / ${i.romaji} / ${i.vi} ${i.en ? `/ ${i.en}` : ''}`).join('\n'));
+    setShadowRows((s.items || []).map(i => ({
+      jp: i.jp || '',
+      vi: i.vi || '',
+      en: i.en || ''
+    })));
+  };
+
+  const addShadowRow = () => {
+    setShadowRows(prev => [...prev, { jp: '', vi: '', en: '' }]);
+  };
+
+  const updateShadowRow = (index, field, value) => {
+    setShadowRows(prev => prev.map((row, i) => i === index ? { ...row, [field]: value } : row));
+  };
+
+  const removeShadowRow = (index) => {
+    setShadowRows(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -848,7 +974,7 @@ function AdminPanel({ dbTopics, setDbTopics, dbShadowing, setDbShadowing, adminP
                 <>
                   <div className="flex justify-between items-center mb-6">
                     <h3 className="font-bold text-xl text-slate-800">Kho Chủ đề</h3>
-                    <button onClick={() => setEditingTopic({ id: 't_' + Date.now(), title: '', level: 'A1', req: '', isPublished: false, hint: { jp: '', romaji: '', vi: '', en: '' } })} className="bg-[#F26522] text-white hover:bg-[#d95618] px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-md"><Plus size={18} /> Thêm mới</button>
+                    <button onClick={() => setEditingTopic({ id: 't_' + Date.now(), title: '', level: 'A1', req: '', isPublished: false, hint: { jp: '', vi: '', en: '' } })} className="bg-[#F26522] text-white hover:bg-[#d95618] px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-md"><Plus size={18} /> Thêm mới</button>
                   </div>
                   <div className="space-y-4">
                     {dbTopics.map(topic => (
@@ -888,12 +1014,11 @@ function AdminPanel({ dbTopics, setDbTopics, dbShadowing, setDbShadowing, adminP
                   <div className="p-4 border rounded-xl bg-slate-50 space-y-3">
                     <label className="block text-sm font-bold text-slate-800 border-b pb-2">Bài nói mẫu</label>
                     <div className="bg-orange-50 text-orange-800 p-3 rounded-lg text-xs font-medium border border-orange-200">
-                      Cú pháp phiên âm: <code>[texto|pronunciación]</code> (Ví dụ: <code>[perro|PE-rro]</code>)
+                      Chỉ cần nhập bài mẫu bằng tiếng Tây Ban Nha, tiếng Việt và tiếng Anh. Không cần nhập pronunciation.
                     </div>
-                    <div><label className="block text-xs font-bold mb-1">Tiếng Tây Ban Nha (Hỗ trợ Furigana)</label><textarea value={editingTopic.hint.jp} onChange={e => setEditingTopic({ ...editingTopic, hint: { ...editingTopic.hint, jp: e.target.value } })} className="w-full p-2 border rounded-lg h-24" placeholder="VD: Hola, me llamo Ana. Vivo en Hanói..." /></div>
-                    <div><label className="block text-xs font-bold mb-1">Pronunciación</label><input type="text" value={editingTopic.hint.romaji} onChange={e => setEditingTopic({ ...editingTopic, hint: { ...editingTopic.hint, romaji: e.target.value } })} className="w-full p-2 border rounded-lg" /></div>
-                    <div><label className="block text-xs font-bold mb-1">Tiếng Việt</label><input type="text" value={editingTopic.hint.vi} onChange={e => setEditingTopic({ ...editingTopic, hint: { ...editingTopic.hint, vi: e.target.value } })} className="w-full p-2 border rounded-lg" /></div>
-                    <div><label className="block text-xs font-bold mb-1">Tiếng Anh (Cho giao diện EN)</label><input type="text" value={editingTopic.hint.en || ''} onChange={e => setEditingTopic({ ...editingTopic, hint: { ...editingTopic.hint, en: e.target.value } })} className="w-full p-2 border rounded-lg" /></div>
+                    <div><label className="block text-xs font-bold mb-1">Tiếng Tây Ban Nha</label><textarea value={editingTopic.hint.jp} onChange={e => setEditingTopic({ ...editingTopic, hint: { ...editingTopic.hint, jp: e.target.value } })} className="w-full p-2 border rounded-lg h-24" placeholder="VD: Hola, me llamo Ana. Vivo en Hanói..." /></div>
+                    <div><label className="block text-xs font-bold mb-1">Tiếng Việt</label><textarea value={editingTopic.hint.vi} onChange={e => setEditingTopic({ ...editingTopic, hint: { ...editingTopic.hint, vi: e.target.value } })} className="w-full p-2 border rounded-lg h-20" /></div>
+                    <div><label className="block text-xs font-bold mb-1">Tiếng Anh (Cho giao diện EN)</label><textarea value={editingTopic.hint.en || ''} onChange={e => setEditingTopic({ ...editingTopic, hint: { ...editingTopic.hint, en: e.target.value } })} className="w-full p-2 border rounded-lg h-20" /></div>
                   </div>
                   <div className="flex gap-4 mt-8 pt-4 border-t"><button onClick={() => saveTopic(false)} className="flex-1 bg-slate-200 py-3 rounded-xl font-bold">Lưu Nháp</button><button onClick={() => saveTopic(true)} className="flex-1 bg-[#F26522] text-white py-3 rounded-xl font-bold">Lưu & Public</button></div>
                 </div>
@@ -907,7 +1032,7 @@ function AdminPanel({ dbTopics, setDbTopics, dbShadowing, setDbShadowing, adminP
                 <>
                   <div className="flex justify-between items-center mb-6">
                     <h3 className="font-bold text-xl text-slate-800">Kho Shadowing</h3>
-                    <button onClick={() => { setEditingShadow({ id: 's_' + Date.now(), title: '', level: 'A1', type: 'sentence', isPublished: false, items: [] }); setShadowItemsText(''); }} className="bg-[#F26522] text-white px-4 py-2 rounded-lg font-bold text-sm"><Plus size={18} className="inline" /> Thêm mới</button>
+                    <button onClick={() => { setEditingShadow({ id: 's_' + Date.now(), title: '', level: 'A1', type: 'sentence', isPublished: false, items: [] }); setShadowRows([{ jp: '', vi: '', en: '' }]); }} className="bg-[#F26522] text-white px-4 py-2 rounded-lg font-bold text-sm"><Plus size={18} className="inline" /> Thêm mới</button>
                   </div>
                   <div className="space-y-4">
                     {dbShadowing.map(shadow => (
@@ -939,16 +1064,37 @@ function AdminPanel({ dbTopics, setDbTopics, dbShadowing, setDbShadowing, adminP
                     <div><label className="block text-sm font-bold mb-1">Tên bài học</label><input type="text" value={editingShadow.title} onChange={e => setEditingShadow({ ...editingShadow, title: e.target.value })} className="w-full p-3 border rounded-xl" /></div>
                   </div>
                   <div className="mb-4">
-                    <label className="block text-sm font-bold mb-2">Danh sách Từ vựng / Câu</label>
-                    <div className="bg-orange-50 text-orange-800 p-4 rounded-xl text-sm font-medium mb-3 border border-orange-200 shadow-inner">
-                      <p className="mb-2"><strong>Cú pháp bắt buộc:</strong> <code>Tiếng Tây Ban Nha / Pronunciación / Tiếng Việt / Tiếng Anh</code> (Ngăn cách bằng dấu <code>/</code>)</p>
-                      <p className="mb-2"><strong>Chú thích phiên âm:</strong> <code>[texto|pronunciación]</code></p>
-                      <ul className="list-disc pl-5 space-y-1 mt-2 text-xs opacity-90">
-                        <li>VD Từ vựng: <code>[perro|PE-rro] / PE-rro / con chó / dog</code></li>
-                        <li>VD Câu văn: <code>Buenos días. / BWE-nos DI-as / Chào buổi sáng. / Good morning.</code></li>
-                      </ul>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-bold">Danh sách Từ vựng / Câu</label>
+                      <button type="button" onClick={addShadowRow} className="bg-orange-100 text-[#F26522] hover:bg-orange-200 px-3 py-2 rounded-lg font-bold text-xs flex items-center gap-1">
+                        <Plus size={14} /> Thêm dòng
+                      </button>
                     </div>
-                    <textarea value={shadowItemsText} onChange={e => setShadowItemsText(e.target.value)} className="w-full p-4 border rounded-xl h-64 font-mono text-sm leading-relaxed" placeholder="[perro|PE-rro] / PE-rro / con chó / dog" />
+                    <div className="bg-orange-50 text-orange-800 p-4 rounded-xl text-sm font-medium mb-3 border border-orange-200 shadow-inner">
+                      Mỗi hạng mục được nhập thành 3 ô riêng: <strong>Tiếng Tây Ban Nha</strong>, <strong>Tiếng Việt</strong>, <strong>Tiếng Anh</strong>. Không cần nhập pronunciation.
+                    </div>
+
+                    <div className="space-y-3">
+                      {shadowRows.map((row, index) => (
+                        <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-3 items-start bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">Tiếng Tây Ban Nha</label>
+                            <textarea value={row.jp} onChange={e => updateShadowRow(index, 'jp', e.target.value)} className="w-full p-2 border rounded-lg min-h-[54px] text-sm" placeholder="perro / Buenos días." />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">Tiếng Việt</label>
+                            <textarea value={row.vi} onChange={e => updateShadowRow(index, 'vi', e.target.value)} className="w-full p-2 border rounded-lg min-h-[54px] text-sm" placeholder="con chó / Chào buổi sáng." />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">Tiếng Anh</label>
+                            <textarea value={row.en} onChange={e => updateShadowRow(index, 'en', e.target.value)} className="w-full p-2 border rounded-lg min-h-[54px] text-sm" placeholder="dog / Good morning." />
+                          </div>
+                          <button type="button" onClick={() => removeShadowRow(index)} className="mt-5 md:mt-6 p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100" title="Xóa dòng">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   <div className="flex gap-4 mt-8 pt-4 border-t"><button onClick={() => saveShadow(false)} className="flex-1 bg-slate-200 py-3 rounded-xl font-bold">Lưu Nháp</button><button onClick={() => saveShadow(true)} className="flex-1 bg-[#F26522] text-white py-3 rounded-xl font-bold">Lưu & Public</button></div>
                 </div>
@@ -969,9 +1115,8 @@ function AdminPanel({ dbTopics, setDbTopics, dbShadowing, setDbShadowing, adminP
 function generateGradingResultFallback(transcript, expectedRawText, level, mode, lang, t) {
   const clamp = (val) => Math.min(10.0, Math.max(0.0, parseFloat(val) || 0)).toFixed(1);
 
-  // Fallback: so khớp văn bản tiếng Tây Ban Nha và phiên âm nếu có cú pháp [texto|pronunciación]
-  const cleanExpectedMain = expectedRawText ? expectedRawText.replace(/\[([^|]+)\|([^\]]+)\]/g, '$1').replace(/[.,;:!?¿¡\s]/g, '').toLowerCase() : '';
-  const cleanExpectedPronunciation = expectedRawText ? expectedRawText.replace(/\[([^|]+)\|([^\]]+)\]/g, '$2').replace(/[.,;:!?¿¡\s]/g, '').toLowerCase() : '';
+  // Fallback: so khớp văn bản tiếng Tây Ban Nha thuần, không cần pronunciation
+  const cleanExpectedMain = expectedRawText ? expectedRawText.replace(/[.,;:!?¿¡\s]/g, '').toLowerCase() : '';
   const cleanTranscript = transcript ? transcript.replace(/[.,;:!?¿¡\s]/g, '').toLowerCase() : '';
 
   let finalScore = 5.0;
@@ -980,8 +1125,7 @@ function generateGradingResultFallback(transcript, expectedRawText, level, mode,
 
   if (mode === 'vocab' || mode === 'sentence') {
     let matchCount = 0;
-    // Gộp văn bản chính và phiên âm lại để kiểm tra xem STT trả về dạng nào cũng bắt được
-    const targetString = cleanExpectedMain + cleanExpectedPronunciation;
+    const targetString = cleanExpectedMain;
     for (let char of cleanTranscript) { if (targetString.includes(char)) matchCount++; }
 
     const matchRate = Math.min(1.0, matchCount / Math.max(1, cleanExpectedMain.length));
@@ -1338,27 +1482,14 @@ function FreeAndTopicMode({ type, studentName, onRequireName, dbTopics }) {
   useEffect(() => { if (!studentName) onRequireName(); }, []);
 
   const playModelAudio = (textRaw, speedMode = 'normal') => {
-    if (!('speechSynthesis' in window)) { alert("TTS not supported in your browser."); return; }
-
-    // Đổi $1 (Kanji) thành $2 (Hiragana) để máy đọc chuẩn xác 100% cách phát âm đã quy định
-    const cleanText = textRaw.replace(/\[([^|]+)\|([^\]]+)\]/g, '$2');
-    setIsPlayingModel(speedMode);
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = 'es-ES';
-
-    if (speedMode === 'slow') {
-      utterance.rate = 0.35;
-    } else {
-      const rateMap = { 'A1': 0.85, 'A2': 0.95, 'B1': 1.0, 'B2': 1.05, 'C1': 1.1, 'C2': 1.12 };
-      utterance.rate = currentTopic ? (rateMap[currentTopic.level] || 1.0) : 1.0;
-    }
-
-    utterance.onend = () => setIsPlayingModel(false);
-    utterance.onerror = () => setIsPlayingModel(false);
-
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    speakSpanishModelAudio({
+      textRaw,
+      speedMode,
+      level: currentTopic?.level || 'A1',
+      lang,
+      onStart: () => setIsPlayingModel(speedMode),
+      onEnd: () => setIsPlayingModel(false)
+    });
   };
 
   const handleAudioReady = (file, url, text, isFile) => {
@@ -1490,9 +1621,8 @@ function FreeAndTopicMode({ type, studentName, onRequireName, dbTopics }) {
                     </div>
                     <div className="space-y-3">
                       <div className="text-lg font-medium text-slate-900 tracking-wide break-words">
-                        <PronunciationText text={currentTopic.hint.jp} />
+                        <SpanishText text={currentTopic.hint.jp} />
                       </div>
-                      <p className="text-sm font-mono text-[#F26522] leading-relaxed mt-2 pt-2 border-t border-slate-100">{currentTopic.hint.romaji}</p>
                       <p className="text-sm text-slate-600 italic border-l-2 border-slate-300 pl-3 leading-relaxed mt-2">{currentTopic.hint[lang] || currentTopic.hint.vi}</p>
                     </div>
                   </div>
@@ -1587,27 +1717,14 @@ function ShadowingMode({ studentName, onRequireName, dbShadowing }) {
   };
 
   const playModelAudio = (textRaw, speedMode = 'normal') => {
-    if (!('speechSynthesis' in window)) { return; }
-
-    // Đổi $1 (Kanji) thành $2 (Hiragana) để máy đọc chuẩn xác 100% cách phát âm đã quy định
-    const cleanText = textRaw.replace(/\[([^|]+)\|([^\]]+)\]/g, '$2');
-    setIsPlayingModel(speedMode);
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = 'es-ES';
-
-    if (speedMode === 'slow') {
-      utterance.rate = 0.35;
-    } else {
-      const rateMap = { 'A1': 0.85, 'A2': 0.95, 'B1': 1.0, 'B2': 1.05, 'C1': 1.1, 'C2': 1.12 };
-      utterance.rate = rateMap[level] || 1.0;
-    }
-
-    utterance.onend = () => setIsPlayingModel(false);
-    utterance.onerror = () => setIsPlayingModel(false);
-
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    speakSpanishModelAudio({
+      textRaw,
+      speedMode,
+      level,
+      lang,
+      onStart: () => setIsPlayingModel(speedMode),
+      onEnd: () => setIsPlayingModel(false)
+    });
   };
 
   const handleAudioReady = async (file, url, transcriptStr, isFile) => {
@@ -1752,9 +1869,8 @@ function ShadowingMode({ studentName, onRequireName, dbShadowing }) {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
             <div className="w-full min-w-0">
               <div className="text-2xl sm:text-3xl md:text-4xl font-medium text-slate-900 mb-4 font-serif tracking-wide leading-relaxed break-words">
-                <PronunciationText text={currentItem.jp} />
+                <SpanishText text={currentItem.jp} />
               </div>
-              <p className="text-base font-mono text-[#F26522] mb-1 break-words">{currentItem.romaji}</p>
               <p className="text-sm text-slate-500 italic break-words">{currentItem[lang] || currentItem.vi}</p>
             </div>
 
